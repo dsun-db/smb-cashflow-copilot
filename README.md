@@ -39,6 +39,12 @@ raw CSV drops (UC Volume) -> Lakeflow SDP: Auto Loader bronze -> silver (expecta
 7. **PII defense in depth:** UC column masks at source, an app pre-check before any LLM call (blocked and redacted), and every call audited in Lakebase.
 8. **Genie ≠ copilot:** Genie handles governed ad-hoc analytics and shows its SQL; the copilot does account-level guidance. Testing caught Genie using `ILIKE '%West%'`, which matched *Mid*west; fixed with an instruction.
 
+## How I built it: AI-assisted workflow
+**Tools:** Claude Code (Claude Opus) in the terminal as a pair builder, driving the Databricks CLI and REST APIs (SQL Statement Execution, Pipelines, Jobs, Lakebase `postgres`, Serving, Genie, Apps) plus `psql`. Databricks-hosted Claude and gte-large-en run *inside* the product (`ai_query`, copilot).
+**Workflow:** I set the use case, buyer and scope. Claude Code proposed designs and wrote the code. I reviewed each stage against real run output before moving on, and the evidence files are that output.
+**Force multipliers:** shipping all six stages in one sitting; probing APIs live (e.g. synced tables work without CREATE CATALOG); writing the evidence and scrub tooling.
+**Where human review mattered:** the hero runway first came out at 29 days, not 39 (a math slip); the data generator hung in an infinite loop (I flagged it); scores were 0/1, not probabilities; Claude returned empty answers when adaptive thinking used up `max_tokens`; Genie's `ILIKE '%West%'` matched Midwest; HNSW missed exact matches on duplicate vectors. Each was caught by checking outputs, then fixed and re-run.
+
 **Limitations / next:** synthetic labels (production needs point-in-time features), regex PII guard (move to AI Gateway guardrails), OBO auth plus UC row filters per agent, MLflow GenAI eval for the copilot, Lakehouse Monitoring on the inference table, Asset Bundles for CI/CD.
 
 ## Layout & reproduce

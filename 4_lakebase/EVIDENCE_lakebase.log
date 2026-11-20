@@ -1,0 +1,66 @@
+# Lakebase evidence (captured 2026-11-20T16:57:53Z) - project smb-cashflow / branch production / db cashflow (Postgres 17)
+## UC -> Lakebase synced tables (managed; refreshed by job tasks sync_lakebase_*)
+  lb_account_cashflow_health    SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE  last_sync=2026-11-20T16:51:49
+  lb_account_notes_embedded     SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE  last_sync=2026-11-20T16:51:52
+  lb_copilot_briefings          SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE  last_sync=2026-11-20T16:51:49
+  lb_invoices                   SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE  last_sync=2026-11-20T15:52:35
+  lb_bills                      SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE  last_sync=2026-11-20T15:38:17
+  lb_success_agents             SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE  last_sync=2026-11-20T15:38:22
+  lb_agent_portfolio            SYNCED_TABLE_ONLINE_NO_PENDING_UPDATE  last_sync=2026-11-20T16:51:47
+
+## Output of 04_refresh_lakebase.py (task run 1091166134545035): pgvector refresh, row counts, latency
+connected to Lakebase <lakebase-endpoint> as <user>
+refreshed app.note_vectors in 0.9s
+smb_cashflow.lb_account_cashflow_health       1500 rows
+smb_cashflow.lb_invoices                     29509 rows
+smb_cashflow.lb_bills                        17198 rows
+smb_cashflow.lb_success_agents                  12 rows
+smb_cashflow.lb_agent_portfolio                 12 rows
+smb_cashflow.lb_copilot_briefings              304 rows
+smb_cashflow.lb_account_notes_embedded        3063 rows
+app.note_vectors                              3063 rows
+app.agent_actions                                3 rows
+app.copilot_audit                                8 rows
+point lookup 5.1 ms -> ('SMB-0112', 'Granite Goods', 21500.0, 89040.0, 39.0, 0.7447, 'High')
+pgvector HNSW top-3 search 8.6 ms
+   ('SMB-1498', 'Owner asked whether to lay off staff; walked through collecting overdu', Decimal('0.229'))
+   ('SMB-0871', 'Owner asked whether to lay off staff; walked through collecting overdu', Decimal('0.229'))
+   ('SMB-0863', 'Owner asked whether to lay off staff; walked through collecting overdu', Decimal('0.229'))
+
+## psql against Lakebase
+EXPLAIN (ANALYZE, COSTS OFF) SELECT note_id FROM app.note_vectors ORDER BY emb <=> (SELECT emb FROM app.note_vectors WHERE account_id='SMB-0112' LIMIT 1) LIMIT 5;
+                                             QUERY PLAN                                             
+----------------------------------------------------------------------------------------------------
+ Limit (actual time=0.407..0.446 rows=5 loops=1)
+   InitPlan 1
+     ->  Limit (actual time=0.047..0.047 rows=1 loops=1)
+           ->  Seq Scan on note_vectors note_vectors_1 (actual time=0.047..0.047 rows=1 loops=1)
+                 Filter: (account_id = 'SMB-0112'::text)
+                 Rows Removed by Filter: 234
+   ->  Index Scan using hnsw_note_vectors on note_vectors (actual time=0.406..0.445 rows=5 loops=1)
+         Order By: (emb <=> (InitPlan 1).col1)
+ Planning Time: 0.716 ms
+ Execution Time: 0.632 ms
+(10 rows)
+
+SELECT action_id, account_id, agent_id, action_type, created_by, created_at FROM app.agent_actions ORDER BY action_id DESC LIMIT 5;
+ action_id | account_id | agent_id |    action_type    |              created_by              |          created_at           
+-----------+------------+----------+-------------------+--------------------------------------+-------------------------------
+         5 | SMB-0112   | AG-01    | send_ar_reminders | <app-sp-client-id> | 2026-11-20 16:57:00.863372+00
+         4 | SMB-0112   | AG-01    | send_ar_reminders | <app-sp-client-id> | 2026-11-20 16:55:18.934602+00
+         3 | SMB-0112   | AG-01    | send_ar_reminders | <app-sp-client-id> | 2026-11-20 16:15:25.636273+00
+         2 | SMB-0112   | AG-01    | send_ar_reminders | <app-sp-client-id> | 2026-11-20 16:04:41.400862+00
+         1 | SMB-0112   | AG-01    | send_ar_reminders | <app-sp-client-id> | 2026-11-20 16:03:19.132726+00
+(5 rows)
+
+SELECT id, account_id, left(question_redacted, 60) question, blocked, pii_entities, latency_ms FROM app.copilot_audit ORDER BY id DESC LIMIT 6;
+ id | account_id |                           question                           | blocked |    pii_entities    | latency_ms 
+----+------------+--------------------------------------------------------------+---------+--------------------+------------
+ 12 | SMB-0112   | Owner SSN is <US_SSN> and card <CARD_NUMBER>, check their cr | t       | CARD_NUMBER,US_SSN |          0
+ 11 | SMB-0112   | Should the owner cut staff or chase receivables?             | f       |                    |       7047
+ 10 | SMB-0112   | Owner SSN is <US_SSN> and card <CARD_NUMBER>, check their cr | t       | CARD_NUMBER,US_SSN |          0
+  9 | SMB-0112   | Should the owner cut staff or chase receivables?             | f       |                    |       9042
+  8 | SMB-0112   | Owner SSN is <US_SSN> and card <CARD_NUMBER>, check their cr | t       | CARD_NUMBER,US_SSN |          0
+  7 | SMB-0112   | Should the owner cut staff or chase receivables?             | f       |                    |       6571
+(6 rows)
+

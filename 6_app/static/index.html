@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SMB Cash-Flow Copilot</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d2327;--muted:#6b7280;--line:#e5e2da;--hi:#b42318;--hi-bg:#fdecea;--wa:#a15c07;--wa-bg:#fef4e2;--ok:#1a7f4b;--ok-bg:#e6f4ec;--acc:#1f4f8f}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--ink);color:#fff}
+header h1{font-size:16px;margin:0;font-weight:650}header .sub{color:#aeb4bb;font-size:12px}
+header select{margin-left:auto;padding:6px 8px;border-radius:6px;border:0;font:inherit}
+nav{display:flex;gap:4px;padding:0 20px;background:var(--ink)}nav button{background:none;border:0;color:#aeb4bb;padding:8px 12px;font:inherit;cursor:pointer;border-bottom:2px solid transparent}
+nav button.on{color:#fff;border-color:#fff}
+main{display:grid;grid-template-columns:340px 1fr 380px;gap:14px;padding:14px 20px;height:calc(100vh - 92px)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 10px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.kpi{border:1px solid var(--line);border-radius:8px;padding:8px}
+.kpi b{display:block;font-size:18px}.kpi span{font-size:11px;color:var(--muted)}
+.acct{display:flex;justify-content:space-between;gap:8px;padding:8px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.acct:hover{background:#faf9f6}.acct.sel{border-color:var(--acc);background:#f1f5fb}.acct small{color:var(--muted)}
+.pill{font-size:11px;font-weight:600;padding:2px 7px;border-radius:999px;white-space:nowrap}.High{color:var(--hi);background:var(--hi-bg)}.Watch{color:var(--wa);background:var(--wa-bg)}.Healthy{color:var(--ok);background:var(--ok-bg)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
+.brief{background:#f1f5fb;border-left:3px solid var(--acc);padding:10px;border-radius:6px;margin:10px 0}
+.meter{height:8px;background:#eee;border-radius:4px;overflow:hidden}.meter i{display:block;height:100%;background:var(--hi)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.btns button,.ask button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 9px;font:inherit;cursor:pointer}
+.btns button:hover{border-color:var(--acc)}
+.chat{display:flex;flex-direction:column;height:100%}.msgs{flex:1;overflow:auto}.msg{padding:9px 11px;border-radius:8px;margin:6px 0;white-space:pre-wrap}
+.me{background:#eef0f3;margin-left:30px}.bot{background:#f1f5fb}.blk{background:var(--hi-bg);color:var(--hi)}
+.ask{display:flex;gap:6px;margin-top:8px}.ask input{flex:1;padding:8px;border:1px solid var(--line);border-radius:6px;font:inherit}
+.sugg button{font-size:12px;margin:2px;border:1px dashed var(--line);background:#fff;border-radius:6px;padding:4px 7px;cursor:pointer}
+.muted{color:var(--muted)}code{font-size:11.5px;background:#f3f2ee;padding:8px;display:block;white-space:pre-wrap;border-radius:6px}
+#genieView{display:none;padding:14px 20px}#genieView .card{max-width:1100px;margin:auto;height:calc(100vh - 120px)}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>SMB Cash-Flow Copilot</h1><div class="sub">Customer Success · Lakeflow → Unity Catalog → ML/Claude → Lakebase → Genie</div></div>
+  <select id="agent"></select>
+</header>
+<nav><button class="on" data-v="console">Agent console</button><button data-v="genie">Ask Genie (portfolio analytics)</button></nav>
+
+<main id="console">
+  <section class="card"><h2>My book · sorted by ML shortfall risk</h2><div id="sum" class="muted"></div><div id="list"></div></section>
+  <section class="card" id="detail"><p class="muted">Select an account.</p></section>
+  <section class="card chat"><h2>Copilot (Claude · grounded in Lakebase)</h2>
+    <div class="sugg" id="sugg"></div><div class="msgs" id="msgs"></div>
+    <div class="ask"><input id="q" placeholder="Ask about this account…"><button id="send">Ask</button></div></section>
+</main>
+
+<div id="genieView"><div class="card chat"><h2>Genie · natural-language questions over governed UC gold tables</h2>
+  <div class="sugg" id="gsugg"></div><div class="msgs" id="gmsgs"></div>
+  <div class="ask"><input id="gq" placeholder="e.g. Which West accounts have under 45 days of runway?"><button id="gsend">Ask Genie</button></div></div></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

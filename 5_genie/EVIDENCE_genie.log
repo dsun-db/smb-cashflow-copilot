@@ -1,0 +1,127 @@
+# Genie space (Conversation API) 'SMB Cash-Flow Copilot' (01f1e4f8753e1bb08155f860d8d67ecb) - conversation transcript 2026-11-20T16:58:03Z
+
+## Q: Which West region accounts have less than 45 days of runway?
+status=COMPLETED  (16.3s)
+Genie: You want to see all accounts in the West region that have less than 45 days of cash runway left, meaning they have limited cash flow sustainability.
+SQL:
+SELECT
+  `account_id`,
+  `business_name`,
+  `agent_name`,
+  ROUND(`current_balance`) AS `current_balance`,
+  ROUND(`overdue_ar`) AS `overdue_ar`,
+  `runway_days`,
+  ROUND(`shortfall_prob` * 100) AS `shortfall_pct`
+FROM `serverless_stable_0dcqtv_catalog`.`smb_cashflow`.`account_cashflow_health`
+WHERE `region` = 'West'
+  AND `runway_days` IS NOT NULL
+  AND `runway_days` < 45
+ORDER BY `runway_days` ASC
+Result: account_id | business_name | agent_name | current_balance | overdue_ar | runway_days | shortfall_pct
+   SMB-0171 | Vista Kitchen | Marcus Webb | -5090.0 | 52466.0 | 0.0 | 90.0
+   SMB-0687 | Driftwood Bistro | Priya Nair | -1606.0 | 110625.0 | 0.0 | 29.0
+   SMB-0410 | Evergreen Online | Marcus Webb | -4286.0 | 18636.0 | 0.0 | 90.0
+   SMB-0549 | Willow Creek Home Services | Marcus Webb | -1917.0 | 30770.0 | 0.0 | 36.0
+   SMB-0430 | Silver Peak Advisors | Priya Nair | -3783.0 | 104552.0 | 0.0 | 22.0
+   SMB-1326 | Willow Creek Foundation of Fresno | Marcus Webb | -1960.0 | 73493.0 | 0.0 | 91.0
+   ...
+   (54 rows)
+Genie: Examples of **West** accounts with less than **45 days** of runway include:
+- **Vista Kitchen** — **0 days** of runway, **$-5,090** current balance, **90%** shortfall probability
+- **Driftwood Bistro** — **0 days** of runway, **$-1,606** current balance, **29%** shortfall probability
+- **Evergreen Online** — **0 days** of runway, **$-4,286** current balance, **90%** shortfall probability
+- **Willow Creek Home Services** — **0 days** of runway, **$-1,917** current balance, **36%** shortfall probability
+- **Silver Peak Advisors** — **0 days** of runway, **$-3,783** current balance, **22%** shortfall probability
+
+## Q: How much overdue receivable is stuck in high-risk accounts by agent?
+status=COMPLETED  (11.1s)
+Genie: You want to see the total amount of overdue receivables and the number of high-risk accounts, broken down by each agent.
+SQL:
+SELECT `agent_name`, COUNT(*) AS `high_risk_accounts`, ROUND(SUM(`overdue_ar`)) AS `overdue_ar`
+FROM `serverless_stable_0dcqtv_catalog`.`smb_cashflow`.`account_cashflow_health`
+WHERE `risk_tier` = 'High'
+  AND `agent_name` IS NOT NULL
+GROUP BY `agent_name`
+ORDER BY `overdue_ar` DESC
+Result: agent_name | high_risk_accounts | overdue_ar
+   Hannah Weiss | 34 | 1915878.0
+   Ravi Shah | 30 | 1615201.0
+   Priya Nair | 25 | 1438157.0
+   Jamal Carter | 24 | 1405794.0
+   Tom Alvarez | 27 | 1330207.0
+   Lucia Torres | 26 | 1282239.0
+   ...
+   (12 rows)
+Genie: Across the **12 agents** shown, the most overdue receivable stuck in **high-risk accounts** is with **Hannah Weiss** at **$1,915,878** across **34** accounts. Examples include:
+- **Hannah Weiss** — **$1,915,878** across **34** high-risk accounts
+- **Ravi Shah** — **$1,615,201** across **30** high-risk accounts
+- **Priya Nair** — **$1,438,157** across **25** high-risk accounts
+- **Jamal Carter** — **$1,405,794** across **24** high-risk accounts
+- **Tom Alvarez** — **$1,330,207** across **27** high-risk accounts
+
+Among the agents shown, overdue receivables range from **$792,945** to **$1,915,878**, with higher totals generally lining up with more high-risk accounts.
+
+## Q: Which industries have the highest average shortfall probability?
+status=COMPLETED  (13.6s)
+Genie: You want to see which industries have the highest average probability of running out of cash soon, expressed as a percentage. The results also show how many accounts are in each industry. The list is sorted to show the industries with the highest average shortfall probability first, and industries with the same average are sorted alphabetically.
+SQL:
+SELECT
+  `industry`,
+  ROUND(AVG(`shortfall_prob`) * 100, 1) AS `avg_shortfall_pct`,
+  COUNT(*) AS `account_count`
+FROM `serverless_stable_0dcqtv_catalog`.`smb_cashflow`.`account_cashflow_health`
+WHERE `industry` IS NOT NULL
+  AND `shortfall_prob` IS NOT NULL
+GROUP BY `industry`
+ORDER BY AVG(`shortfall_prob`) DESC, `industry` ASC
+Result: industry | avg_shortfall_pct | account_count
+   Manufacturing | 26.0 | 150
+   Construction | 25.8 | 149
+   Nonprofit | 24.2 | 146
+   Marketing Agency | 23.6 | 142
+   Restaurant | 23.2 | 166
+   Healthcare Services | 22.0 | 142
+   ...
+   (10 rows)
+Genie: Examples include:
+- **Manufacturing**: **26.0%** average shortfall probability across **150** accounts
+- **Construction**: **25.8%** across **149** accounts
+- **Nonprofit**: **24.2%** across **146** accounts
+- **Marketing Agency**: **23.6%** across **142** accounts
+- **Restaurant**: **23.2%** across **166** accounts
+Across the 10 industries shown, average shortfall probability ranges from **19.0%** to **26.0%**, with **Manufacturing** highest and **Professional Services** lowest.
+
+## Q: Show Granite Goods' overdue invoices by customer
+status=COMPLETED  (16.6s)
+Genie: You want to see the overdue invoices for Granite Goods, broken down by each customer name.
+SQL:
+SELECT
+  i.`customer_name`,
+  COUNT(*) AS `overdue_invoice_count`,
+  ROUND(SUM(i.`amount`)) AS `overdue_amount`
+FROM `serverless_stable_0dcqtv_catalog`.`smb_cashflow`.`silver_invoices` i
+INNER JOIN `serverless_stable_0dcqtv_catalog`.`smb_cashflow`.`account_cashflow_health` a
+  ON i.`account_id` = a.`account_id`
+WHERE a.`business_name` ILIKE '%Granite Goods%'
+  AND i.`status` = 'overdue'
+  AND i.`customer_name` IS NOT NULL
+  AND i.`amount` IS NOT NULL
+GROUP BY i.`customer_name`
+ORDER BY SUM(i.`amount`) DESC, i.`customer_name` ASC
+Result: customer_name | overdue_invoice_count | overdue_amount
+   Stark Retail | 3 | 42550.0
+   Globex | 2 | 18950.0
+   Vandelay Industries | 1 | 12800.0
+   Initech | 1 | 8740.0
+   Hooli | 1 | 6000.0
+   (5 rows)
+Genie: Granite Goods has **5 customers** with overdue invoices in the results shown, led by **Stark Retail** with **$42,550** across **3** overdue invoices.
+
+Some of the top overdue balances by customer are:
+- **Stark Retail** — **$42,550** across **3** overdue invoices
+- **Globex** — **$18,950** across **2** overdue invoices
+- **Vandelay Industries** — **$12,800** across **1** overdue invoice
+- **Initech** — **$8,740** across **1** overdue invoice
+- **Hooli** — **$6,000** across **1** overdue invoice
+
+The overdue amount drops sharply after the top two customers, so Granite Goods' largest collections exposure in this sample is concentrated in **Stark Retail** and **Globex**.

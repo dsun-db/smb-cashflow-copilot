@@ -1,0 +1,55 @@
+# Databricks App evidence: live HTTP calls to the deployed app (2026-11-20T16:59:04Z)
+# The app runs as its service principal -> Lakebase (reads/writes), Model Serving, FMAPI Claude, Genie
+
+### GET /api/health -> HTTP 200 (1171 ms)
+{"lakebase": true, "model_endpoint": "smb-cashflow-shortfall", "accounts": 1500}
+
+### GET /api/portfolio?agent_id=AG-01 -> HTTP 200 (598 ms)
+agent Priya Nair (West): 130 accounts, ML tiers {'High': 25, 'Watch': 22, 'Healthy': 83}, overdue AR $2,794,064
+  SMB-0425 Kestrel Online           High  p=0.96 runway=3d overdue=$91,392
+  SMB-0362 Trailhead Bistro         High  p=0.95 runway=1d overdue=$60,070
+  SMB-1038 Quarry Clinic            High  p=0.94 runway=15d overdue=$65,113
+  SMB-0033 Redwood Advisors         High  p=0.93 runway=18d overdue=$34,806
+
+### GET /api/account/SMB-0112 -> HTTP 200 (610 ms)
+{'business_name': 'Granite Goods', 'current_balance': 21500.0, 'overdue_ar': 89040.0, 'overdue_ar_count': 8.0, 'net_monthly': -16500.0, 'runway_days': 39.0, 'shortfall_prob': 0.7447, 'risk_tier': 'High', 'primary_driver': 'Overdue receivables exceed cash on hand', 'model_version': 5}
+Claude batch briefing: Granite Goods has about 39 days of cash left, burning $16,500 a month, and a 74% chance of a 60-day shortfall, mainly because $89,040 across 8 overdue invoices is more than the $21,500 in the bank. Next action: start collection calls today on the largest overdue invoices, and ask for payment dates before the $13,758 in bills come due.
+overdue invoices: [('Stark Retail', 18400.0), ('Stark Retail', 14250.0), ('Vandelay Industries', 12800.0), ('Globex', 11600.0), ('Stark Retail', 9900.0), ('Initech', 8740.0), ('Globex', 7350.0), ('Hooli', 6000.0)]
+
+### POST /api/whatif -> HTTP 200 (598 ms)
+request: {"account_id": "SMB-0112", "customer": "Stark Retail"}
+collect Stark Retail $42,550 (3 inv): shortfall 74% -> 10%, runway 39 -> 116 d [endpoint smb-cashflow-shortfall, 128 ms]
+
+### POST /api/whatif -> HTTP 200 (545 ms)
+request: {"account_id": "SMB-0112", "customer": "Hooli"}
+collect Hooli $6,000 (1 inv): shortfall 74% -> 56%, runway 39 -> 50 d [endpoint smb-cashflow-shortfall, 115 ms]
+
+### GET /api/search?q=owner%20worried%20about%20making%20payroll -> HTTP 200 (1118 ms)
+  SMB-0092 Saltmarsh Media (High) d=0.217: Owner flagged a cash crunch; payroll due next week and receivables are
+  SMB-0035 Ironwood Wellness (High) d=0.217: Owner flagged a cash crunch; payroll due next week and receivables are
+  SMB-0033 Redwood Advisors (High) d=0.217: Owner flagged a cash crunch; payroll due next week and receivables are
+
+### POST /api/copilot -> HTTP 200 (6843 ms)
+request: {"account_id": "SMB-0112", "question": "Should the owner cut staff or chase receivables?"}
+**Recommendation: chase receivables first. Don't cut staff yet.**
+
+**Why**
+- Overdue receivables are $89,040 across 8 invoices, about 4x the $21,500 bank balance.
+- Stark Retail owes $42,550 across 3 invoices (48% of overdue) and is 30+ days late.
+- Collecting just the Stark invoices would cover the $16,500 monthly burn and the $13,758 in bills due within 30 days.
+- Runway is 39 days, so timing is urgent. We have no payroll figures, so I can't quantify savings from cutting two staff.
+- Similar High-risk cases (Kestrel Media, Redwood Consulting, Blue Harbor Eatery) collected overdue invoices before considering layoffs.
+
+**Next actions for the agent**
+1. Help the owner contact Stark Retail this week about the $18,400, $14,250 and $9,900 invoices, and ask for a payment date or a partial payment.
+2. Prioritize follow-up on the other five overdue invoices (Vandelay, Globex x2, Initech, Hooli), starting with the largest.
+3. Build a 30/60-day cash plan with the owner, including the December payroll loan question, and revisit staffing only if collections stall.
+grounding: {'current_balance': 21500.0, 'overdue_ar': 89040.0, 'runway_days': 39.0, 'shortfall_prob': 0.7447, 'risk_tier': 'High'} | model: databricks-claude-sonnet-5-5 | latency_ms: 6496
+
+### POST /api/copilot -> HTTP 200 (358 ms)
+request: {"account_id": "SMB-0112", "question": "Owner SSN is 123-45-6789 and card 4111 1111 1111 1111, check their credit?"}
+{"blocked": true, "pii_entities": ["CARD_NUMBER", "US_SSN"], "redacted": "Owner SSN is <US_SSN> and card <CARD_NUMBER>, check their credit?"}
+
+### POST /api/actions -> HTTP 200 (403 ms)
+request: {"account_id": "SMB-0112", "agent_id": "AG-01", "action_type": "send_ar_reminders", "note": "Reminders for Stark Retail's 3 overdue invoices"}
+{"action_id": 6, "created_at": "2026-11-20T16:59:16.405190+00:00"}

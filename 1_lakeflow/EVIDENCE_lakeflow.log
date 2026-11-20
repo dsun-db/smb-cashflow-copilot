@@ -1,0 +1,82 @@
+# Lakeflow evidence (captured 2026-11-20T16:57:26Z) - all from real runs in the workspace
+## Synthetic raw data generated (gen_data.py, seed 7)
+accounts=1500 invoices=28839+670 bills=17198 txns=112154+2269 notes=3063 outcomes=1500
+hidden risk mix: {'high': 251, 'watch': 362, 'healthy': 887}
+
+## Incremental ingest: batch_2 files landed AFTER the initial load; Auto Loader picked up only the new files
+## BEFORE batch_2 lands (2026-11-20T15:46:34Z)
+
+t                        | n      | files
+-------------------------+--------+------
+bronze_invoices          | 28839  | 1    
+bronze_bank_transactions | 112154 | 1    
+silver_invoices          | 28839  | NULL 
+silver_bank_transactions | 112154 | NULL 
+(4 rows)
+## batch_2 files landed in /Volumes/.../raw/{invoices,bank_transactions}/
+
+## AFTER job run 1042223428344589 (Auto Loader picked up only the new batch_2 files)
+
+t                        | n      | files
+-------------------------+--------+------
+bronze_invoices          | 29509  | 2    
+bronze_bank_transactions | 114423 | 2    
+silver_invoices          | 29509  | NULL 
+silver_bank_transactions | 114423 | NULL 
+(4 rows)
+
+expected from generator: invoices 28839+670, bank_transactions 112154+2269
+
+file                          | rows  
+------------------------------+-------
+bank_transactions_batch_1.csv | 112154
+bank_transactions_batch_2.csv | 2269  
+invoices_batch_1.csv          | 28839 
+invoices_batch_2.csv          | 670   
+(4 rows)
+
+## Pipeline updates (event_log): 1 = initial load, 2 = full refresh (generator fix), 3 = incremental batch_2, later = job runs (no new files)
+update_id                            | started                  | state    
+-------------------------------------+--------------------------+----------
+19e24ece-0eeb-4d39-99c9-d889b009d81e | 2026-11-20T15:27:49.004Z | COMPLETED
+6289bb6a-e345-44d2-9d05-54c166f04e5f | 2026-11-20T15:29:55.805Z | COMPLETED
+d89a0df2-fdbf-40f8-9663-4c5e0d87968a | 2026-11-20T15:46:45.585Z | COMPLETED
+affe9b7c-dbf5-4377-afaf-c7e9b007688d | 2026-11-20T16:06:45.570Z | COMPLETED
+9be3a054-bf7e-4323-8c37-6ae9f90cc1c4 | 2026-11-20T16:33:38.626Z | COMPLETED
+36157cd9-8b53-4bf7-987e-9f9b0287b3ea | 2026-11-20T16:45:29.739Z | COMPLETED
+(6 rows)
+
+## Data-quality expectations: initial load (19e24ece) vs incremental update (d89a0df2) - 0 failed records
+upd      | dataset                  | expectation      | passed | failed
+---------+--------------------------+------------------+--------+-------
+19e24ece | silver_bank_transactions | positive_amount  | 112154 | 0     
+19e24ece | silver_bank_transactions | valid_direction  | 112154 | 0     
+19e24ece | silver_smb_accounts      | has_agent        | 1500   | 0     
+19e24ece | silver_smb_accounts      | known_region     | 1500   | 0     
+19e24ece | silver_smb_accounts      | valid_account_id | 1500   | 0     
+19e24ece | silver_account_notes     | has_text         | 3063   | 0     
+19e24ece | silver_invoices          | due_after_issue  | 28839  | 0     
+19e24ece | silver_invoices          | positive_amount  | 28839  | 0     
+19e24ece | silver_invoices          | valid_status     | 28839  | 0     
+19e24ece | silver_success_agents    | has_id           | 12     | 0     
+19e24ece | silver_bills             | positive_amount  | 17198  | 0     
+19e24ece | silver_bills             | valid_status     | 17198  | 0     
+d89a0df2 | silver_bank_transactions | positive_amount  | 2269   | 0     
+d89a0df2 | silver_bank_transactions | valid_direction  | 2269   | 0     
+d89a0df2 | silver_invoices          | due_after_issue  | 670    | 0     
+d89a0df2 | silver_invoices          | positive_amount  | 670    | 0     
+d89a0df2 | silver_invoices          | valid_status     | 670    | 0     
+(17 rows)
+
+## Job `smb-cashflow-copilot` run 239048784653883: SUCCESS (7.2 min end-to-end)
+  lakeflow_ingest                        SUCCESS    83.1s
+  ml_model                               SUCCESS    99.8s
+  genai_enrichment                       SUCCESS   174.1s
+  sync_lakebase_account_cashflow_health  SUCCESS    32.7s
+  sync_lakebase_account_notes_embedded   SUCCESS    42.6s
+  sync_lakebase_copilot_briefings        SUCCESS    32.4s
+  sync_lakebase_invoices                 SUCCESS    32.3s
+  sync_lakebase_bills                    SUCCESS    32.3s
+  sync_lakebase_success_agents           SUCCESS    32.4s
+  sync_lakebase_agent_portfolio          SUCCESS    32.4s
+  refresh_lakebase_vectors               SUCCESS    29.3s

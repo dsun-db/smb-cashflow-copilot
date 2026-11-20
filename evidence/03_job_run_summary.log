@@ -1,0 +1,21 @@
+# Job run 229888537341054 (smb-cashflow-copilot) - SUCCESS
+start=1795190799847 end=1795191211936 (epoch ms)
+
+lakeflow_ingest                          SUCCESS     83.4s
+ml_and_genai                             SUCCESS    217.0s
+    -> exported notebooks/executed/02_ml_genai.executed.ipynb (13 cells, 8 with output)
+sync_lakebase_account_cashflow_health    SUCCESS     42.7s
+sync_lakebase_account_notes_embedded     SUCCESS     42.6s
+sync_lakebase_copilot_briefings          SUCCESS     42.6s
+sync_lakebase_invoices                   SUCCESS     32.6s
+sync_lakebase_bills                      SUCCESS     32.9s
+sync_lakebase_success_agents             SUCCESS     32.8s
+sync_lakebase_agent_portfolio            SUCCESS     33.2s
+refresh_lakebase_vectors                 FAILED      31.8s
+    -> exported notebooks/executed/03_refresh_lakebase.executed.ipynb (5 cells, 0 with output)
+refresh_lakebase_vectors                 SUCCESS     32.7s
+    -> exported notebooks/executed/03_refresh_lakebase.executed.ipynb (5 cells, 3 with output)
+
+NOTE: in run 229888537341054, attempt 0 of refresh_lakebase_vectors hit a transient serverless runtime abort (SIGABRT at Python start-up, before any user code ran); the automatic retry (attempt 1) succeeded. Job spec now sets max_retries=1 on notebook tasks.
+
+## Previous run (incremental batch_2 ingest) - see evidence/01_incremental_ingest.log

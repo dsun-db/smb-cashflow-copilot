@@ -1,0 +1,152 @@
+# Genie space 'SMB Cash-Flow Copilot' (01f1e4f8753e1bb08155f860d8d67ecb) - conversation transcript 2026-11-20T16:14:28Z
+
+## Q: Which West region accounts have less than 45 days of runway?
+status=COMPLETED  (31.3s)
+Genie: You want to see all accounts in the West region that have less than 45 days of cash runway left, showing their account ID, business name, agent name, current balance, overdue accounts receivable, runway days, and the shortfall probability as a percentage, sorted by the fewest runway days first.
+SQL:
+SELECT `account_id`, `business_name`, `agent_name`, ROUND(`current_balance`) AS `current_balance`, ROUND(`overdue_ar`) AS `overdue_ar`, `runway_days`, ROUND(`shortfall_prob` * 100) AS `shortfall_pct`
+FROM `serverless_stable_0dcqtv_catalog`.`smb_cashflow`.`account_cashflow_health`
+WHERE `region` = 'West'
+  AND `runway_days` < 45
+  AND `region` IS NOT NULL
+  AND `runway_days` IS NOT NULL
+ORDER BY `runway_days` ASC
+Result: account_id | business_name | agent_name | current_balance | overdue_ar | runway_days | shortfall_pct
+   SMB-0171 | Vista Kitchen | Marcus Webb | -5090.0 | 52466.0 | 0.0 | 90.0
+   SMB-0109 | Riverstone Construction LLC | Marcus Webb | -2563.0 | 9774.0 | 0.0 | 29.0
+   SMB-0687 | Driftwood Bistro | Priya Nair | -1606.0 | 110625.0 | 0.0 | 29.0
+   SMB-0317 | Silver Peak Supply Co | Elena Park | -2299.0 | 21974.0 | 0.0 | 35.0
+   SMB-0399 | Kestrel Clinic | Marcus Webb | -5427.0 | 50829.0 | 0.0 | 80.0
+   SMB-1410 | Tidewater Commerce of Fresno | Priya Nair | -2957.0 | 99788.0 | 0.0 | 36.0
+   SMB-0302 | Ironwood Consulting | Elena Park | -3109.0 | 115482.0 | 0.0 | 95.0
+   SMB-1326 | Willow Creek Foundation of Fresno | Marcus Webb | -1960.0 | 73493.0 | 0.0 | 91.0
+   SMB-1202 | Yarrow Supply Co of Boise | Marcus Webb | -2299.0 | 39137.0 | 0.0 | 27.0
+   SMB-0410 | Evergreen Online | Marcus Webb | -4286.0 | 18636.0 | 0.0 | 90.0
+   SMB-0397 | Anchor Wellness | Marcus Webb | -1509.0 | 56757.0 | 0.0 | 47.0
+   SMB-0733 | Vista Industries | Priya Nair | -3093.0 | 45188.0 | 0.0 | 75.0
+   (54 rows)
+Genie: There are **54** West region accounts with fewer than **45 days** of runway. Examples include:
+- **Vista Kitchen** — **0 days** of runway, **90%** shortfall probability, **$52,466** overdue AR
+- **Riverstone Construction LLC** — **0 days** of runway, **29%** shortfall probability, **$9,774** overdue AR
+- **Driftwood Bistro** — **0 days** of runway, **29%** shortfall probability, **$110,625** overdue AR
+- **Silver Peak Supply Co** — **0 days** of runway, **35%** shortfall probability, **$21,974** overdue AR
+- **Kestrel Clinic** — **0 days** of runway, **80%** shortfall probability, **$50,829** overdue AR
+
+## Q: How much overdue receivable is stuck in high-risk accounts by agent?
+status=COMPLETED  (13.9s)
+Genie: You want to see the total amount of overdue receivables and the number of high-risk accounts for each agent, focusing only on accounts classified as high risk.
+SQL:
+SELECT
+  `agent_name`,
+  COUNT(*) AS `high_risk_accounts`,
+  ROUND(SUM(`overdue_ar`)) AS `overdue_ar`
+FROM `serverless_stable_0dcqtv_catalog`.`smb_cashflow`.`account_cashflow_health`
+WHERE `risk_tier` = 'High'
+  AND `agent_name` IS NOT NULL
+GROUP BY `agent_name`
+ORDER BY `overdue_ar` DESC
+Result: agent_name | high_risk_accounts | overdue_ar
+   Hannah Weiss | 34 | 1915878.0
+   Ravi Shah | 30 | 1615201.0
+   Priya Nair | 25 | 1438157.0
+   Jamal Carter | 24 | 1405794.0
+   Tom Alvarez | 27 | 1330207.0
+   Lucia Torres | 26 | 1282239.0
+   Sofia Rossi | 24 | 1132951.0
+   Ben Okafor | 27 | 1098071.0
+   Dana Kowalski | 24 | 1052047.0
+   Elena Park | 21 | 927238.0
+   Grace Lin | 19 | 904482.0
+   Marcus Webb | 23 | 792945.0
+   (12 rows)
+Genie: Examples include:
+- **Hannah Weiss**: **$1,915,878** in overdue receivables across **34** high-risk accounts
+- **Ravi Shah**: **$1,615,201** across **30** high-risk accounts
+- **Priya Nair**: **$1,438,157** across **25** high-risk accounts
+- **Jamal Carter**: **$1,405,794** across **24** high-risk accounts
+- **Tom Alvarez**: **$1,330,207** across **27** high-risk accounts
+Across all 12 agents shown, overdue receivables in high-risk accounts range from **$792,945** to **$1,915,878**, with **Hannah Weiss** highest and **Marcus Webb** lowest.
+
+## Q: Which industries have the highest average shortfall probability?
+status=COMPLETED  (21.2s)
+Genie: You want to see which industries have the highest average probability of running out of cash soon, ranked from highest to lowest.
+SQL:
+WITH `industry_avg` AS (
+  SELECT
+    `industry`,
+    ROUND(AVG(`shortfall_prob`) * 100, 1) AS `avg_shortfall_pct`
+  FROM `serverless_stable_0dcqtv_catalog`.`smb_cashflow`.`account_cashflow_health`
+  WHERE `industry` IS NOT NULL
+    AND `shortfall_prob` IS NOT NULL
+  GROUP BY `industry`
+), `ranked` AS (
+  SELECT
+    `industry`,
+    `avg_shortfall_pct`,
+    RANK() OVER (ORDER BY `avg_shortfall_pct` DESC) AS `industry_rank`
+  FROM `industry_avg`
+)
+SELECT
+  `industry`,
+  `avg_shortfall_pct`,
+  `industry_rank`
+FROM `ranked`
+ORDER BY `industry_rank` ASC, `avg_shortfall_pct` DESC, `industry` ASC
+Result: industry | avg_shortfall_pct | industry_rank
+   Manufacturing | 26.0 | 1
+   Construction | 25.8 | 2
+   Nonprofit | 24.2 | 3
+   Marketing Agency | 23.6 | 4
+   Restaurant | 23.2 | 5
+   E-commerce | 22.0 | 6
+   Healthcare Services | 22.0 | 6
+   Home Services | 21.4 | 8
+   Retail | 20.5 | 9
+   Professional Services | 19.0 | 10
+   (10 rows)
+Genie: Would you prefer to see the industries ranked by median shortfall probability or by a weighted average based on account size instead?
+Genie: The industries with the highest average shortfall probability are led by **Manufacturing** at **26.0%**, followed by **Construction** at **25.8%** and **Nonprofit** at **24.2%**. Examples include:
+- **Manufacturing** — **26.0%**
+- **Construction** — **25.8%**
+- **Nonprofit** — **24.2%**
+- **Marketing Agency** — **23.6%**
+- **Restaurant** — **23.2%**
+Across the 10 industries shown, average shortfall probability ranges from **19.0%** to **26.0%**, with **E-commerce** and **Healthcare Services** tied at **22.0%**.
+
+## Q: Show Granite Goods' overdue invoices by customer
+status=COMPLETED  (18.5s)
+Genie: You want to see a list of customers who have overdue invoices with Granite Goods, including the number of overdue invoices, the total overdue amount, and the range of due dates for those invoices.
+SQL:
+SELECT
+  `si`.`customer_name`,
+  COUNT(*) AS `overdue_invoice_count`,
+  ROUND(SUM(`si`.`amount`)) AS `overdue_amount`,
+  MIN(`si`.`due_date`) AS `earliest_due_date`,
+  MAX(`si`.`due_date`) AS `latest_due_date`
+FROM `serverless_stable_0dcqtv_catalog`.`smb_cashflow`.`account_cashflow_health` AS `ach`
+INNER JOIN `serverless_stable_0dcqtv_catalog`.`smb_cashflow`.`silver_invoices` AS `si`
+  ON `ach`.`account_id` = `si`.`account_id`
+WHERE `ach`.`business_name` ILIKE '%Granite Goods%'
+  AND `si`.`status` = 'overdue'
+  AND `si`.`customer_name` IS NOT NULL
+  AND `si`.`due_date` IS NOT NULL
+GROUP BY `si`.`customer_name`
+ORDER BY `overdue_amount` DESC, `overdue_invoice_count` DESC, `si`.`customer_name` ASC
+Result: customer_name | overdue_invoice_count | overdue_amount | earliest_due_date | latest_due_date
+   Stark Retail | 3 | 42550.0 | 2026-10-04 | 2026-10-27
+   Globex | 2 | 18950.0 | 2026-10-21 | 2026-11-02
+   Vandelay Industries | 1 | 12800.0 | 2026-10-17 | 2026-10-17
+   Initech | 1 | 8740.0 | 2026-10-30 | 2026-10-30
+   Hooli | 1 | 6000.0 | 2026-11-07 | 2026-11-07
+   (5 rows)
+Genie: Granite Goods has **5 customers** with overdue invoices in the results, led by **Stark Retail** with **$42,550** across **3** overdue invoices due between **2026-10-04** and **2026-10-27**.
+
+Examples include:
+- **Stark Retail** — **$42,550** across **3** overdue invoices
+- **Globex** — **$18,950** across **2** overdue invoices
+- **Vandelay Industries** — **$12,800** across **1** overdue invoice
+- **Initech** — **$8,740** across **1** overdue invoice
+- **Hooli** — **$6,000** across **1** overdue invoice
+
+The overdue amounts range from **$6,000** to **$42,550**, with **Stark Retail** standing out as the largest source of stuck cash by customer.
+Genie: Would you prefer to see only exact matches for the business name 'Granite Goods' instead of partial matches?

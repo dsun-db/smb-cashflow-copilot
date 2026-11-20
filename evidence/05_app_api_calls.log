@@ -1,0 +1,177 @@
+# App API evidence  2026-11-20T16:15:14Z
+# app: smb-... (Databricks App, SP auth to Lakebase / FMAPI / Genie)
+
+### GET /api/health  ->  HTTP 200  (495 ms)
+{
+  "lakebase": true,
+  "llm": "databricks-claude-sonnet-5-5",
+  "genie_space": true,
+  "accounts": 1500
+}
+
+### GET /api/agents  ->  HTTP 200  (388 ms)
+[
+  {
+    "agent_id": "AG-01",
+    "agent_name": "Priya Nair",
+    "region": "West"
+  },
+  {
+    "agent_id": "AG-02",
+    "agent_name": "Marcus Webb",
+    "region": "West"
+  },
+  {
+    "agent_id": "AG-03",
+    "agent_name": "Elena Park",
+    "region": "West"
+  },
+  {
+    "agent_id": "AG-04",
+    "agent_name": "Dana Kowalski",
+    "region": "Midwest"
+  }
+]
+... 12 agents
+
+### GET /api/portfolio?agent_id=AG-01  ->  HTTP 200  (569 ms)
+{
+  "agent_id": "AG-01",
+  "agent_name": "Priya Nair",
+  "region": "West",
+  "accounts": 130,
+  "high_risk_accounts": 23,
+  "watch_accounts": 20,
+  "overdue_ar_total": 2794064.5,
+  "avg_runway_days": 289.1,
+  "ml_tiers": {
+    "High": 25,
+    "Watch": 22,
+    "Healthy": 83
+  }
+}
+top 5 accounts by ML shortfall risk:
+  SMB-0425 Kestrel Online             tier=High    p=0.96 runway=3d overdue_ar=$91,392
+  SMB-0362 Trailhead Bistro           tier=High    p=0.95 runway=1d overdue_ar=$60,070
+  SMB-1038 Quarry Clinic              tier=High    p=0.94 runway=15d overdue_ar=$65,113
+  SMB-0033 Redwood Advisors           tier=High    p=0.93 runway=18d overdue_ar=$34,806
+  SMB-0077 Summit Wellness            tier=High    p=0.91 runway=10d overdue_ar=$36,219
+
+### GET /api/account/SMB-0112  ->  HTTP 200  (674 ms)
+{
+  "account_id": "SMB-0112",
+  "business_name": "Granite Goods",
+  "industry": "Retail",
+  "region": "West",
+  "plan_tier": "Growth",
+  "agent_id": "AG-01",
+  "agent_name": "Priya Nair",
+  "revenue_band": "$250K-1M",
+  "current_balance": 21500.0,
+  "overdue_ar": 89040.0,
+  "overdue_ar_count": 8.0,
+  "open_ar": 6300.0,
+  "max_days_overdue": 47.0,
+  "ap_due_30": 13758.02,
+  "overdue_bills": 1.0,
+  "monthly_inflow": 20000.0,
+  "monthly_outflow": 36500.0,
+  "net_monthly": -16500.0,
+  "tenure_days": 667.0,
+  "as_of_date": "2026-11-20",
+  "runway_days": 39.0,
+  "rule_risk_tier": "High",
+  "risk_tier": "High",
+  "primary_driver": "Overdue receivables exceed cash on hand",
+  "model_version": 3,
+  "scored_at": "2026-11-20T16:09:16.065468+00:00",
+  "shortfall_prob": 0.7447
+}
+briefing: Granite Goods is burning $16,500 a month with only $21,500 in the bank (about 39 days of runway), and a 74% chance of a 60-day cash shortfall, mainly because $89,040 across 8 overdue invoices is stuck uncollected, which is more than the cash on hand. The best next action is to start collection calls today on the largest overdue invoices, offering short payment plans if needed, so cash arrives before the $13,758 in bills come due.
+overdue invoices:
+   {'invoice_id': 'INV-0002131', 'customer_name': 'Stark Retail', 'amount': 18400.0, 'issue_date': '2026-09-04', 'due_date': '2026-10-04', 'status': 'overdue'}
+   {'invoice_id': 'INV-0002132', 'customer_name': 'Stark Retail', 'amount': 14250.0, 'issue_date': '2026-09-11', 'due_date': '2026-10-11', 'status': 'overdue'}
+   {'invoice_id': 'INV-0002133', 'customer_name': 'Vandelay Industries', 'amount': 12800.0, 'issue_date': '2026-09-17', 'due_date': '2026-10-17', 'status': 'overdue'}
+   {'invoice_id': 'INV-0002134', 'customer_name': 'Globex', 'amount': 11600.0, 'issue_date': '2026-09-21', 'due_date': '2026-10-21', 'status': 'overdue'}
+   {'invoice_id': 'INV-0002135', 'customer_name': 'Stark Retail', 'amount': 9900.0, 'issue_date': '2026-09-27', 'due_date': '2026-10-27', 'status': 'overdue'}
+   {'invoice_id': 'INV-0002136', 'customer_name': 'Initech', 'amount': 8740.0, 'issue_date': '2026-09-30', 'due_date': '2026-10-30', 'status': 'overdue'}
+   {'invoice_id': 'INV-0002137', 'customer_name': 'Globex', 'amount': 7350.0, 'issue_date': '2026-10-03', 'due_date': '2026-11-02', 'status': 'overdue'}
+   {'invoice_id': 'INV-0002138', 'customer_name': 'Hooli', 'amount': 6000.0, 'issue_date': '2026-10-08', 'due_date': '2026-11-07', 'status': 'overdue'}
+
+### GET /api/search?q=owner%20worried%20about%20making%20payroll  ->  HTTP 200  (833 ms)
+   {'account_id': 'SMB-0360', 'business_name': 'Foxglove Media', 'risk_tier': 'High', 'note_text': 'Owner flagged a cash crunch; payroll due next week and receivables are piling up. Discussed invoice reminders.', 'distance': 0.217}
+   {'account_id': 'SMB-0362', 'business_name': 'Trailhead Bistro', 'risk_tier': 'High', 'note_text': 'Owner flagged a cash crunch; payroll due next week and receivables are piling up. Discussed invoice reminders.', 'distance': 0.217}
+   {'account_id': 'SMB-0377', 'business_name': 'Juniper Clinic', 'risk_tier': 'High', 'note_text': 'Owner flagged a cash crunch; payroll due next week and receivables are piling up. Discussed invoice reminders.', 'distance': 0.217}
+   {'account_id': 'SMB-0427', 'business_name': 'Anchor Alliance', 'risk_tier': 'High', 'note_text': 'Owner flagged a cash crunch; payroll due next week and receivables are piling up. Discussed invoice reminders.', 'distance': 0.217}
+   {'account_id': 'SMB-0433', 'business_name': 'Zephyr Consulting', 'risk_tier': 'High', 'note_text': 'Owner flagged a cash crunch; payroll due next week and receivables are piling up. Discussed invoice reminders.', 'distance': 0.217}
+   {'account_id': 'SMB-0190', 'business_name': 'Driftwood Alliance', 'risk_tier': 'High', 'note_text': 'Owner flagged a cash crunch; payroll due next week and receivables are piling up. Discussed invoice reminders.', 'distance': 0.217}
+
+### POST /api/copilot  ->  HTTP 200  (6954 ms)
+request: {"account_id": "SMB-0112", "question": "Should the owner cut staff or chase receivables?"}
+answer:
+**Recommendation: chase receivables first. Cutting staff looks premature.**
+
+**Why**
+- Overdue receivables of $89,040 (8 invoices) are 4x the $21,500 cash balance.
+- Net burn is $-16,500/month, which gives 39 days of runway. Bills due in 30 days are $13,758.
+- Collecting about $16,500 would cover a month of burn.
+- Stark Retail has three listed invoices totaling $42,550, all 30+ days late.
+- Three similar High-risk cases started with collections before layoffs.
+
+**Next actions for the agent**
+1. Help the owner contact Stark Retail this week for payment or a dated payment plan on $18,400, $14,250 and $9,900.
+2. Send reminders for Vandelay ($12,800), Globex ($11,600) and Initech ($8,740).
+3. Build a 30-day cash forecast with the owner showing the shortfall with and without collections. Use it to decide on the December payroll bridge loan and, only if collections fall short, staffing.
+
+**Data note:** The six listed invoices total $75,690, so about $13,350 across two invoices isn't itemized. Confirm those before outreach.
+grounding: {'current_balance': 21500.0, 'overdue_ar': 89040.0, 'runway_days': 39.0, 'shortfall_prob': 0.7447, 'risk_tier': 'High'} | latency_ms: 6571
+
+### POST /api/copilot  ->  HTTP 200  (378 ms)
+request: {"account_id": "SMB-0112", "question": "Owner SSN is 123-45-6789 and card 4111 1111 1111 1111, check their credit?"}
+{
+  "blocked": true,
+  "pii_entities": [
+    "CARD_NUMBER",
+    "US_SSN"
+  ],
+  "redacted": "Owner SSN is <US_SSN> and card <CARD_NUMBER>, check their credit?"
+}
+
+### POST /api/actions  ->  HTTP 200  (401 ms)
+request: {"account_id": "SMB-0112", "agent_id": "AG-01", "action_type": "send_ar_reminders", "note": "Reminders for 8 overdue invoices (Stark Retail first)"}
+{
+  "action_id": 3,
+  "created_at": "2026-11-20T16:15:25.636273+00:00"
+}
+
+### GET /api/account/SMB-0112  ->  HTTP 200  (671 ms)
+actions now on account: [{'action_type': 'send_ar_reminders', 'note': 'Reminders for 8 overdue invoices (Stark Retail first)', 'created_at': '2026-11-20T16:15:25.636273+00:00'}, {'action_type': 'send_ar_reminders', 'note': 'Reminders for 8 overdue invoices (Stark Retail first)', 'created_at': '2026-11-20T16:04:41.400862+00:00'}, {'action_type': 'send_ar_reminders', 'note': 'Reminders for 8 overdue invoices (Stark Retail first)', 'created_at': '2026-11-20T16:03:19.132726+00:00'}]
+
+### POST /api/genie  ->  HTTP 200  (16517 ms)
+request: {"question": "Which West region accounts have less than 45 days of runway?"}
+genie text: Examples of **West** accounts with less than **45 days of runway** include:
+- **Vista Kitchen** — **0 days** of runway, **90%** shortfall probability, agent **Marcus Webb**
+- **Riverstone Construction LLC** — **0 days** of runway, **29%** shortfall probability, agent **Marcus Webb**
+- **Driftwood Bistro** — **0 days** of runway, **29%** shortfall probability, agent **Priya Nair**
+- **Silver Peak Supply Co** — **0 days** of runway, **35%** shortfall probability, agent **Elena Park**
+- **Kestrel Clinic** — **0 days** of runway, **80%** shortfall probability, agent **Marcus Webb**
+genie sql:
+ SELECT `account_id`, `business_name`, `agent_name`, ROUND(`current_balance`) AS `current_balance`, ROUND(`overdue_ar`) AS `overdue_ar`, `runway_days`, ROUND(`shortfall_prob` * 100) AS `shortfall_pct`
+FROM `serverless_stable_0dcqtv_catalog`.`smb_cashflow`.`account_cashflow_health`
+WHERE `region` = 'West'
+  AND `runway_days` < 45
+  AND `region` IS NOT NULL
+  AND `runway_days` IS NOT NULL
+ORDER BY `runway_days` ASC
+columns: ['account_id', 'business_name', 'agent_name', 'current_balance', 'overdue_ar', 'runway_days', 'shortfall_pct']
+   ['SMB-0171', 'Vista Kitchen', 'Marcus Webb', '-5090.0', '52466.0', '0.0', '90.0']
+   ['SMB-0109', 'Riverstone Construction LLC', 'Marcus Webb', '-2563.0', '9774.0', '0.0', '29.0']
+   ['SMB-0687', 'Driftwood Bistro', 'Priya Nair', '-1606.0', '110625.0', '0.0', '29.0']
+   ['SMB-0317', 'Silver Peak Supply Co', 'Elena Park', '-2299.0', '21974.0', '0.0', '35.0']
+   ['SMB-0399', 'Kestrel Clinic', 'Marcus Webb', '-5427.0', '50829.0', '0.0', '80.0']
+   ['SMB-1410', 'Tidewater Commerce of Fresno', 'Priya Nair', '-2957.0', '99788.0', '0.0', '36.0']
+   ['SMB-0302', 'Ironwood Consulting', 'Elena Park', '-3109.0', '115482.0', '0.0', '95.0']
+   ['SMB-1326', 'Willow Creek Foundation of Fresno', 'Marcus Webb', '-1960.0', '73493.0', '0.0', '91.0']
+   ['SMB-1202', 'Yarrow Supply Co of Boise', 'Marcus Webb', '-2299.0', '39137.0', '0.0', '27.0']
+   ['SMB-0410', 'Evergreen Online', 'Marcus Webb', '-4286.0', '18636.0', '0.0', '90.0']
+  ... 50 rows

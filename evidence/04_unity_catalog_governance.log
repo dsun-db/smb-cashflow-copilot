@@ -1,0 +1,126 @@
+# Unity Catalog governance evidence (2026-11-20T16:14:28Z)
+
+## Tables in schema smb_cashflow (type + comment; internal pipeline materializations/event logs hidden)
+
+>>> SELECT table_name, table_type, left(comment, 90) comment FROM system.information_schema.tables WHERE table_catalog='serverless_stable_0dcqtv_catalog' AND table_schema='smb_cashflow' AND table_name NOT LIKE '\\_\\_%' AND table_name NOT LIKE 'event_log%' ORDER BY 1
+table_name                 | table_type        | comment                                                     
+---------------------------+-------------------+-------------------------------------------------------------
+account_cashflow_health    | MANAGED           | Serving table: gold features + ML shortfall probability (cas
+account_notes_embedded     | MANAGED           | Agent call notes + 1024-d gte-large-en embeddings (ai_query)
+bronze_account_notes       | STREAMING_TABLE   | Raw free-text notes written by Success Agents after customer
+bronze_account_outcomes    | STREAMING_TABLE   | Historical labels: did the SMB hit a cash shortfall within 6
+bronze_bank_transactions   | STREAMING_TABLE   | Raw bank-feed transactions connected to each SMB            
+bronze_bills               | STREAMING_TABLE   | Raw bills (accounts payable) owed by SMBs to vendors        
+bronze_invoices            | STREAMING_TABLE   | Raw invoices (accounts receivable) issued by SMBs to their c
+bronze_smb_accounts        | STREAMING_TABLE   | Raw SMB account master drops (Auto Loader, schema-on-read)  
+bronze_success_agents      | STREAMING_TABLE   | Raw Customer Success Agent roster                           
+copilot_briefings          | MANAGED           | Claude-generated next-best-action briefing for each High-ris
+gold_account_features      | MATERIALIZED_VIEW | One row per SMB: cash position, AR/AP exposure, 90-day burn,
+gold_agent_portfolio       | MATERIALIZED_VIEW | Per Success Agent book summary: accounts, rule-based risk mi
+lb_account_cashflow_health | FOREIGN           | Database table synced from another UC table                 
+lb_account_notes_embedded  | FOREIGN           | Database table synced from another UC table                 
+lb_agent_portfolio         | FOREIGN           | Database table synced from another UC table                 
+lb_bills                   | FOREIGN           | Database table synced from another UC table                 
+lb_copilot_briefings       | FOREIGN           | Database table synced from another UC table                 
+lb_invoices                | FOREIGN           | Database table synced from another UC table                 
+lb_success_agents          | FOREIGN           | Database table synced from another UC table                 
+silver_account_notes       | STREAMING_TABLE   | Success Agent call notes (free text; embedded downstream for
+silver_account_outcomes    | STREAMING_TABLE   | Training labels for the cash-shortfall model                
+silver_bank_transactions   | STREAMING_TABLE   | Typed bank-feed transactions. credit = money in, debit = mon
+silver_bills               | STREAMING_TABLE   | Typed bills (AP).                                           
+silver_invoices            | STREAMING_TABLE   | Typed invoices (AR). overdue = past due date and unpaid.    
+silver_smb_accounts        | STREAMING_TABLE   | Cleaned SMB account master. owner_email and tax_id carry UC 
+silver_success_agents      | STREAMING_TABLE   | Customer Success Agent roster                               
+(26 rows)
+
+## Column masks: PII is masked for anyone outside group cashflow_pii_readers (query run as the build user)
+
+>>> SELECT account_id, business_name, owner_email, tax_id FROM serverless_stable_0dcqtv_catalog.smb_cashflow.silver_smb_accounts WHERE account_id IN ('SMB-0112','SMB-0001')
+account_id | business_name    | owner_email | tax_id  
+-----------+------------------+-------------+---------
+SMB-0001   | Northgate Direct | ****.com    | ****1955
+SMB-0112   | Granite Goods    | ****.com    | ****0580
+(2 rows)
+
+>>> SELECT table_name, column_name, mask_name FROM system.information_schema.column_masks WHERE table_schema='smb_cashflow'
+table_name          | column_name | mask_name                                             
+--------------------+-------------+-------------------------------------------------------
+silver_smb_accounts | tax_id      | serverless_stable_0dcqtv_catalog.smb_cashflow.mask_pii
+silver_smb_accounts | owner_email | serverless_stable_0dcqtv_catalog.smb_cashflow.mask_pii
+(2 rows)
+
+## Governed tags (conforming to workspace tag policies)
+
+>>> SELECT table_name, tag_name, tag_value FROM system.information_schema.table_tags WHERE schema_name='smb_cashflow' ORDER BY 1,2
+table_name              | tag_name       | tag_value       
+------------------------+----------------+-----------------
+account_cashflow_health | cashflow_layer | gold_serving    
+account_cashflow_health | data_product   | analytics       
+account_cashflow_health | domain         | finance         
+account_notes_embedded  | ai_generated   | embeddings      
+account_notes_embedded  | data_product   | machine_learning
+account_notes_embedded  | domain         | finance         
+copilot_briefings       | ai_generated   | true            
+copilot_briefings       | data_product   | machine_learning
+copilot_briefings       | domain         | finance         
+silver_smb_accounts     | contains_pii   | true            
+silver_smb_accounts     | data_product   | data_engineering
+silver_smb_accounts     | domain         | finance         
+(12 rows)
+
+>>> SELECT table_name, column_name, tag_name, tag_value FROM system.information_schema.column_tags WHERE schema_name='smb_cashflow'
+table_name          | column_name | tag_name | tag_value
+--------------------+-------------+----------+----------
+silver_smb_accounts | tax_id      | pii      | ssn      
+silver_smb_accounts | owner_email | pii_type | email    
+(2 rows)
+
+## Least-privilege grants to the Databricks App service principal
+
+>>> SELECT table_name, privilege_type, grantee FROM system.information_schema.table_privileges WHERE table_schema='smb_cashflow' AND grantee='<app-sp-client-id>' ORDER BY 1
+table_name               | privilege_type | grantee                             
+-------------------------+----------------+-------------------------------------
+account_cashflow_health  | SELECT         | <app-sp-client-id>
+copilot_briefings        | SELECT         | <app-sp-client-id>
+gold_agent_portfolio     | SELECT         | <app-sp-client-id>
+silver_bank_transactions | SELECT         | <app-sp-client-id>
+silver_bills             | SELECT         | <app-sp-client-id>
+silver_invoices          | SELECT         | <app-sp-client-id>
+(6 rows)
+
+## Model registered in Unity Catalog
+model: serverless_stable_0dcqtv_catalog.smb_cashflow.cash_shortfall_model
+aliases: [{'alias_name': 'champion', 'id': 'b4425fe5-0070-448f-b9ae-ac1ea28ec9b7', 'version_num': 3}]
+comment: None
+  v3 status=READY run_id=8848e0419b1548edafb8865ebf8c3105
+  v2 status=READY run_id=932344c407a844e086719dc11b127dc9
+  v1 status=READY run_id=13d393e515214563bd7e2f0c9485a809
+
+## Lineage captured by UC (system.access.table_lineage): raw volume -> bronze -> silver -> gold -> ML/GenAI tables
+
+>>> SELECT DISTINCT regexp_replace(coalesce(source_table_full_name, source_path), '^serverless_stable_0dcqtv_catalog\\.smb_cashflow\\.', '') source, regexp_replace(target_table_full_name, '^serverless_stable_0dcqtv_catalog\\.smb_cashflow\\.', '') target, entity_type FROM system.access.table_lineage WHER
+source                   | target                     | entity_type
+-------------------------+----------------------------+------------
+silver_account_notes     | account_notes_embedded     | JOB        
+account_cashflow_health  | copilot_briefings          | JOB        
+silver_bank_transactions | gold_account_features      | PIPELINE   
+silver_bills             | gold_account_features      | PIPELINE   
+silver_invoices          | gold_account_features      | PIPELINE   
+silver_smb_accounts      | gold_account_features      | PIPELINE   
+silver_success_agents    | gold_account_features      | PIPELINE   
+gold_account_features    | gold_agent_portfolio       | PIPELINE   
+account_cashflow_health  | lb_account_cashflow_health | PIPELINE   
+account_notes_embedded   | lb_account_notes_embedded  | PIPELINE   
+gold_agent_portfolio     | lb_agent_portfolio         | PIPELINE   
+silver_bills             | lb_bills                   | PIPELINE   
+copilot_briefings        | lb_copilot_briefings       | PIPELINE   
+silver_invoices          | lb_invoices                | PIPELINE   
+silver_success_agents    | lb_success_agents          | PIPELINE   
+bronze_account_notes     | silver_account_notes       | PIPELINE   
+bronze_account_outcomes  | silver_account_outcomes    | PIPELINE   
+bronze_bank_transactions | silver_bank_transactions   | PIPELINE   
+bronze_bills             | silver_bills               | PIPELINE   
+bronze_invoices          | silver_invoices            | PIPELINE   
+bronze_smb_accounts      | silver_smb_accounts        | PIPELINE   
+bronze_success_agents    | silver_success_agents      | PIPELINE   
+(22 rows)

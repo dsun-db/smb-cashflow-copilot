@@ -1,0 +1,69 @@
+# Lakeflow Spark Declarative Pipeline 'smb-cashflow-ingest' - event log evidence (queried via event_log())
+# update 1 = initial load, update 2 = full refresh after generator fix, update 3 = job run with batch_2 (incremental)
+
+>>> SELECT origin.update_id, min(timestamp) started, max(timestamp) ended, max_by(details:update_progress:state, timestamp) final_state FROM event_log('0df01868-d557-4cc1-952c-8fb8b76f11ff') WHERE event_type='update_progress' GROUP BY origin.update_id ORDER BY started
+update_id                            | started                  | ended                    | final_state
+-------------------------------------+--------------------------+--------------------------+------------
+19e24ece-0eeb-4d39-99c9-d889b009d81e | 2026-11-20T15:27:49.004Z | 2026-11-20T15:29:14.443Z | COMPLETED  
+6289bb6a-e345-44d2-9d05-54c166f04e5f | 2026-11-20T15:29:55.805Z | 2026-11-20T15:31:23.673Z | COMPLETED  
+d89a0df2-fdbf-40f8-9663-4c5e0d87968a | 2026-11-20T15:46:45.585Z | 2026-11-20T15:48:12.672Z | COMPLETED  
+(3 rows)
+
+## Data-quality expectations per update (passed / failed records)
+
+>>> SELECT origin.update_id, regexp_replace(origin.flow_name, '.*\\.', '') dataset, e.name expectation, sum(e.passed_records) passed, sum(e.failed_records) failed FROM event_log('0df01868-d557-4cc1-952c-8fb8b76f11ff') LATERAL VIEW explode(from_json(details:flow_progress:data_quality:expectations, 'array
+update_id                            | dataset                  | expectation      | passed | failed
+-------------------------------------+--------------------------+------------------+--------+-------
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_bank_transactions | positive_amount  | 112154 | 0     
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_bank_transactions | valid_direction  | 112154 | 0     
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_smb_accounts      | has_agent        | 1500   | 0     
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_smb_accounts      | known_region     | 1500   | 0     
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_smb_accounts      | valid_account_id | 1500   | 0     
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_account_notes     | has_text         | 3063   | 0     
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_invoices          | due_after_issue  | 28839  | 0     
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_invoices          | positive_amount  | 28839  | 0     
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_invoices          | valid_status     | 28839  | 0     
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_success_agents    | has_id           | 12     | 0     
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_bills             | positive_amount  | 17198  | 0     
+19e24ece-0eeb-4d39-99c9-d889b009d81e | silver_bills             | valid_status     | 17198  | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_bank_transactions | positive_amount  | 112154 | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_bank_transactions | valid_direction  | 112154 | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_smb_accounts      | has_agent        | 1500   | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_smb_accounts      | known_region     | 1500   | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_smb_accounts      | valid_account_id | 1500   | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_account_notes     | has_text         | 3063   | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_invoices          | due_after_issue  | 28839  | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_invoices          | positive_amount  | 28839  | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_invoices          | valid_status     | 28839  | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_success_agents    | has_id           | 12     | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_bills             | positive_amount  | 17198  | 0     
+6289bb6a-e345-44d2-9d05-54c166f04e5f | silver_bills             | valid_status     | 17198  | 0     
+d89a0df2-fdbf-40f8-9663-4c5e0d87968a | silver_bank_transactions | positive_amount  | 2269   | 0     
+d89a0df2-fdbf-40f8-9663-4c5e0d87968a | silver_bank_transactions | valid_direction  | 2269   | 0     
+d89a0df2-fdbf-40f8-9663-4c5e0d87968a | silver_invoices          | due_after_issue  | 670    | 0     
+d89a0df2-fdbf-40f8-9663-4c5e0d87968a | silver_invoices          | positive_amount  | 670    | 0     
+d89a0df2-fdbf-40f8-9663-4c5e0d87968a | silver_invoices          | valid_status     | 670    | 0     
+(29 rows)
+
+## Flow completion events, latest update
+
+>>> SELECT regexp_replace(origin.flow_name, '.*\\.', '') flow, details:flow_progress:status status, coalesce(details:flow_progress:metrics:num_output_rows, details:flow_progress:metrics:num_upserted_rows) rows_out, timestamp FROM event_log('0df01868-d557-4cc1-952c-8fb8b76f11ff') WHERE event_type='flow_p
+flow                     | status    | rows_out | timestamp               
+-------------------------+-----------+----------+-------------------------
+bronze_account_outcomes  | COMPLETED | NULL     | 2026-11-20T15:47:31.826Z
+bronze_smb_accounts      | COMPLETED | NULL     | 2026-11-20T15:47:31.838Z
+bronze_account_notes     | COMPLETED | NULL     | 2026-11-20T15:47:31.843Z
+bronze_success_agents    | COMPLETED | NULL     | 2026-11-20T15:47:32.382Z
+bronze_bills             | COMPLETED | NULL     | 2026-11-20T15:47:33.081Z
+silver_account_notes     | COMPLETED | NULL     | 2026-11-20T15:47:36.591Z
+silver_success_agents    | COMPLETED | NULL     | 2026-11-20T15:47:36.599Z
+silver_account_outcomes  | COMPLETED | NULL     | 2026-11-20T15:47:36.831Z
+silver_smb_accounts      | COMPLETED | NULL     | 2026-11-20T15:47:37.542Z
+silver_bills             | COMPLETED | NULL     | 2026-11-20T15:47:39.296Z
+bronze_invoices          | COMPLETED | NULL     | 2026-11-20T15:47:40.217Z
+bronze_bank_transactions | COMPLETED | NULL     | 2026-11-20T15:47:40.228Z
+silver_bank_transactions | COMPLETED | NULL     | 2026-11-20T15:47:44.954Z
+silver_invoices          | COMPLETED | NULL     | 2026-11-20T15:47:45.440Z
+gold_account_features    | COMPLETED | 1500     | 2026-11-20T15:47:59.523Z
+gold_agent_portfolio     | COMPLETED | 12       | 2026-11-20T15:48:12.633Z
+(16 rows)

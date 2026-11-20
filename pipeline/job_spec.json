@@ -1,0 +1,151 @@
+{
+  "name": "smb-cashflow-copilot",
+  "tasks": [
+    {
+      "task_key": "lakeflow_ingest",
+      "description": "Lakeflow SDP: Auto Loader raw CSV -> bronze/silver/gold",
+      "pipeline_task": {
+        "pipeline_id": "0df01868-d557-4cc1-952c-8fb8b76f11ff"
+      }
+    },
+    {
+      "task_key": "ml_and_genai",
+      "depends_on": [
+        {
+          "task_key": "lakeflow_ingest"
+        }
+      ],
+      "description": "Train/register cash_shortfall_model, score SMBs, embeddings + Claude briefings",
+      "notebook_task": {
+        "notebook_path": "/Workspace/Users/<user>/smb-cashflow-copilot/notebooks/02_ml_genai"
+      },
+      "max_retries": 1,
+      "min_retry_interval_millis": 30000
+    },
+    {
+      "task_key": "sync_lakebase_account_cashflow_health",
+      "depends_on": [
+        {
+          "task_key": "ml_and_genai"
+        }
+      ],
+      "description": "UC -> Lakebase synced table lb_account_cashflow_health",
+      "pipeline_task": {
+        "pipeline_id": "0cdf09cc-fd0a-4aec-9580-4d5f320cce84"
+      }
+    },
+    {
+      "task_key": "sync_lakebase_account_notes_embedded",
+      "depends_on": [
+        {
+          "task_key": "ml_and_genai"
+        }
+      ],
+      "description": "UC -> Lakebase synced table lb_account_notes_embedded",
+      "pipeline_task": {
+        "pipeline_id": "4d88592a-0ec8-457a-966d-a0f5d4d061b2"
+      }
+    },
+    {
+      "task_key": "sync_lakebase_copilot_briefings",
+      "depends_on": [
+        {
+          "task_key": "ml_and_genai"
+        }
+      ],
+      "description": "UC -> Lakebase synced table lb_copilot_briefings",
+      "pipeline_task": {
+        "pipeline_id": "b716f5a9-1ac2-4c4c-a631-8542b36e5ac8"
+      }
+    },
+    {
+      "task_key": "sync_lakebase_invoices",
+      "depends_on": [
+        {
+          "task_key": "ml_and_genai"
+        }
+      ],
+      "description": "UC -> Lakebase synced table lb_invoices",
+      "pipeline_task": {
+        "pipeline_id": "d2c5f2f9-fe8f-4655-a3fa-382eeac52ed3"
+      }
+    },
+    {
+      "task_key": "sync_lakebase_bills",
+      "depends_on": [
+        {
+          "task_key": "ml_and_genai"
+        }
+      ],
+      "description": "UC -> Lakebase synced table lb_bills",
+      "pipeline_task": {
+        "pipeline_id": "077209fb-8267-4199-b43a-83c18453db94"
+      }
+    },
+    {
+      "task_key": "sync_lakebase_success_agents",
+      "depends_on": [
+        {
+          "task_key": "ml_and_genai"
+        }
+      ],
+      "description": "UC -> Lakebase synced table lb_success_agents",
+      "pipeline_task": {
+        "pipeline_id": "c7aa64c7-e3a4-4245-9eaf-5795e978579c"
+      }
+    },
+    {
+      "task_key": "sync_lakebase_agent_portfolio",
+      "depends_on": [
+        {
+          "task_key": "ml_and_genai"
+        }
+      ],
+      "description": "UC -> Lakebase synced table lb_agent_portfolio",
+      "pipeline_task": {
+        "pipeline_id": "084202de-7bbf-46f9-9466-75c7bf249c2e"
+      }
+    },
+    {
+      "task_key": "refresh_lakebase_vectors",
+      "depends_on": [
+        {
+          "task_key": "sync_lakebase_account_cashflow_health"
+        },
+        {
+          "task_key": "sync_lakebase_account_notes_embedded"
+        },
+        {
+          "task_key": "sync_lakebase_copilot_briefings"
+        },
+        {
+          "task_key": "sync_lakebase_invoices"
+        },
+        {
+          "task_key": "sync_lakebase_bills"
+        },
+        {
+          "task_key": "sync_lakebase_success_agents"
+        },
+        {
+          "task_key": "sync_lakebase_agent_portfolio"
+        }
+      ],
+      "description": "Rebuild pgvector HNSW view + verify serving latency",
+      "notebook_task": {
+        "notebook_path": "/Workspace/Users/<user>/smb-cashflow-copilot/notebooks/03_refresh_lakebase"
+      },
+      "max_retries": 1,
+      "min_retry_interval_millis": 30000
+    }
+  ],
+  "max_concurrent_runs": 1,
+  "schedule": {
+    "quartz_cron_expression": "0 0 6 * * ?",
+    "timezone_id": "America/Chicago",
+    "pause_status": "PAUSED"
+  },
+  "tags": {
+    "project": "smb-cashflow-copilot"
+  }
+}

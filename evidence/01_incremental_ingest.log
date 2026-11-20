@@ -1,0 +1,33 @@
+## BEFORE batch_2 lands (2026-11-20T15:46:34Z)
+
+>>> SELECT 'bronze_invoices' t, count(*) n, count(DISTINCT _source_file) files FROM bronze_invoices UNION ALL SELECT 'bronze_bank_transactions', count(*), count(DISTINCT _source_file) FROM bronze_bank_transactions UNION ALL SELECT 'silver_invoices', count(*), null FROM silver_invoices UNION ALL SELECT '
+t                        | n      | files
+-------------------------+--------+------
+bronze_invoices          | 28839  | 1    
+bronze_bank_transactions | 112154 | 1    
+silver_invoices          | 28839  | NULL 
+silver_bank_transactions | 112154 | NULL 
+(4 rows)
+## batch_2 files landed in /Volumes/.../raw/{invoices,bank_transactions}/
+
+## AFTER job run 1042223428344589 (Auto Loader picked up only the new batch_2 files)
+
+>>> SELECT 'bronze_invoices' t, count(*) n, count(DISTINCT _source_file) files FROM bronze_invoices UNION ALL SELECT 'bronze_bank_transactions', count(*), count(DISTINCT _source_file) FROM bronze_bank_transactions UNION ALL SELECT 'silver_invoices', count(*), null FROM silver_invoices UNION ALL SELECT '
+t                        | n      | files
+-------------------------+--------+------
+bronze_invoices          | 29509  | 2    
+bronze_bank_transactions | 114423 | 2    
+silver_invoices          | 29509  | NULL 
+silver_bank_transactions | 114423 | NULL 
+(4 rows)
+
+expected from generator: invoices 28839+670, bank_transactions 112154+2269
+
+>>> SELECT regexp_extract(_source_file, '([^/]+)$', 1) file, count(*) rows FROM bronze_bank_transactions GROUP BY 1 UNION ALL SELECT regexp_extract(_source_file, '([^/]+)$', 1), count(*) FROM bronze_invoices GROUP BY 1 ORDER BY 1
+file                          | rows  
+------------------------------+-------
+bank_transactions_batch_1.csv | 112154
+bank_transactions_batch_2.csv | 2269  
+invoices_batch_1.csv          | 28839 
+invoices_batch_2.csv          | 670   
+(4 rows)

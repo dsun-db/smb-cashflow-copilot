@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SMB Cash-Flow Copilot</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d2327;--muted:#6b7280;--line:#e5e2da;--hi:#b42318;--hi-bg:#fdecea;--wa:#a15c07;--wa-bg:#fef4e2;--ok:#1a7f4b;--ok-bg:#e6f4ec;--acc:#1f4f8f}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--ink);color:#fff}
+header h1{font-size:16px;margin:0;font-weight:650}header .sub{color:#aeb4bb;font-size:12px}
+header select{margin-left:auto;padding:6px 8px;border-radius:6px;border:0;font:inherit}
+nav{display:flex;gap:4px;padding:0 20px;background:var(--ink)}nav button{background:none;border:0;color:#aeb4bb;padding:8px 12px;font:inherit;cursor:pointer;border-bottom:2px solid transparent}
+nav button.on{color:#fff;border-color:#fff}
+main{display:grid;grid-template-columns:340px 1fr 380px;gap:14px;padding:14px 20px;height:calc(100vh - 92px)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 10px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.kpi{border:1px solid var(--line);border-radius:8px;padding:8px}
+.kpi b{display:block;font-size:18px}.kpi span{font-size:11px;color:var(--muted)}
+.acct{display:flex;justify-content:space-between;gap:8px;padding:8px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.acct:hover{background:#faf9f6}.acct.sel{border-color:var(--acc);background:#f1f5fb}.acct small{color:var(--muted)}
+.pill{font-size:11px;font-weight:600;padding:2px 7px;border-radius:999px;white-space:nowrap}.High{color:var(--hi);background:var(--hi-bg)}.Watch{color:var(--wa);background:var(--wa-bg)}.Healthy{color:var(--ok);background:var(--ok-bg)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
+.brief{background:#f1f5fb;border-left:3px solid var(--acc);padding:10px;border-radius:6px;margin:10px 0}
+.meter{height:8px;background:#eee;border-radius:4px;overflow:hidden}.meter i{display:block;height:100%;background:var(--hi)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.btns button,.ask button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 9px;font:inherit;cursor:pointer}
+.btns button:hover{border-color:var(--acc)}
+.chat{display:flex;flex-direction:column;height:100%}.msgs{flex:1;overflow:auto}.msg{padding:9px 11px;border-radius:8px;margin:6px 0;white-space:pre-wrap}
+.me{background:#eef0f3;margin-left:30px}.bot{background:#f1f5fb}.blk{background:var(--hi-bg);color:var(--hi)}
+.ask{display:flex;gap:6px;margin-top:8px}.ask input{flex:1;padding:8px;border:1px solid var(--line);border-radius:6px;font:inherit}
+.sugg button{font-size:12px;margin:2px;border:1px dashed var(--line);background:#fff;border-radius:6px;padding:4px 7px;cursor:pointer}
+.muted{color:var(--muted)}code{font-size:11.5px;background:#f3f2ee;padding:8px;display:block;white-space:pre-wrap;border-radius:6px}
+#genieView{display:none;padding:14px 20px}#genieView .card{max-width:1100px;margin:auto;height:calc(100vh - 120px)}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>SMB Cash-Flow Copilot</h1><div class="sub">Customer Success · Lakeflow → Unity Catalog → ML/Claude → Lakebase → Genie</div></div>
+  <select id="agent"></select>
+</header>
+<nav><button class="on" data-v="console">Agent console</button><button data-v="genie">Ask Genie (portfolio analytics)</button></nav>
+
+<main id="console">
+  <section class="card"><h2>My book · sorted by ML shortfall risk</h2><div id="sum" class="muted"></div><div id="list"></div></section>
+  <section class="card" id="detail"><p class="muted">Select an account.</p></section>
+  <section class="card chat"><h2>Copilot (Claude · grounded in Lakebase)</h2>
+    <div class="sugg" id="sugg"></div><div class="msgs" id="msgs"></div>
+    <div class="ask"><input id="q" placeholder="Ask about this account…"><button id="send">Ask</button></div></section>
+</main>
+
+<div id="genieView"><div class="card chat"><h2>Genie · natural-language questions over governed UC gold tables</h2>
+  <div class="sugg" id="gsugg"></div><div class="msgs" id="gmsgs"></div>
+  <div class="ask"><input id="gq" placeholder="e.g. Which West accounts have under 45 days of runway?"><button id="gsend">Ask Genie</button></div></div></div>
+
+<script>
+const $=s=>document.querySelector(s);const fmt=n=>n==null?'—':'$'+Math.round(n).toLocaleString();
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function j(u,o){const r=await fetch(u,o);return r.json()}
+let AGENT=null,ACCT=null,GCONV=null;
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  $('#console').style.display=b.dataset.v==='console'?'grid':'none';$('#genieView').style.display=b.dataset.v==='genie'?'block':'none'});
+
+async function init(){const a=await j('/api/agents');$('#agent').innerHTML=a.map(x=>`<option value="${x.agent_id}">${esc(x.agent_name)} · ${x.region}</option>`).join('');
+  $('#agent').onchange=e=>load(e.target.value);load(a[0].agent_id);
+  $('#gsugg').innerHTML=['Which West region accounts have less than 45 days of runway?','How much overdue receivable is stuck in high-risk accounts by agent?','Which industries have the highest average shortfall probability?']
+    .map(s=>`<button>${s}</button>`).join('');$('#gsugg').querySelectorAll('button').forEach(b=>b.onclick=()=>genie(b.textContent));}
+
+async function load(id){AGENT=id;const d=await j('/api/portfolio?agent_id='+id);const s=d.summary,t=s.ml_tiers;
+  $('#sum').innerHTML=`${s.accounts} accounts · <span class="pill High">${t.High} High</span> <span class="pill Watch">${t.Watch} Watch</span> · ${fmt(s.overdue_ar_total)} overdue AR`;
+  $('#list').innerHTML=d.accounts.map(a=>`<div class="acct" data-id="${a.account_id}"><div><b>${esc(a.business_name)}</b><br><small>${a.account_id} · ${esc(a.industry)} · runway ${Math.round(a.runway_days)}d</small></div>
+    <div style="text-align:right"><span class="pill ${a.risk_tier}">${a.risk_tier} ${Math.round(a.shortfall_prob*100)}%</span><br><small>${fmt(a.overdue_ar)} overdue</small></div></div>`).join('');
+  document.querySelectorAll('.acct').forEach(e=>e.onclick=()=>pick(e.dataset.id));if(d.accounts[0])pick(d.accounts[0].account_id);}
+
+async function pick(id){ACCT=id;document.querySelectorAll('.acct').forEach(e=>e.classList.toggle('sel',e.dataset.id===id));
+  const d=await j('/api/account/'+id),h=d.health;$('#msgs').innerHTML='';
+  $('#detail').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="margin:0">${h.account_id}</h2><div style="font-size:20px;font-weight:650">${esc(h.business_name)}</div>
+    <div class="muted">${esc(h.industry)} · ${h.region} · ${h.plan_tier} plan · revenue ${h.revenue_band}</div></div><span class="pill ${h.risk_tier}" style="font-size:13px">${h.risk_tier} risk</span></div>
+  <div class="kpis" style="margin-top:12px"><div class="kpi"><b>${fmt(h.current_balance)}</b><span>Bank balance</span></div><div class="kpi"><b style="color:var(--hi)">${fmt(h.overdue_ar)}</b><span>Overdue AR · ${h.overdue_ar_count} invoices</span></div>
+    <div class="kpi"><b>${Math.round(h.runway_days)} days</b><span>Cash runway</span></div><div class="kpi"><b>${fmt(h.net_monthly)}</b><span>Net cash / month</span></div></div>
+  <div><b>ML 60-day shortfall probability: ${Math.round(h.shortfall_prob*100)}%</b> <span class="muted">· model v${h.model_version} · driver: ${esc(h.primary_driver)}</span><div class="meter"><i style="width:${h.shortfall_prob*100}%"></i></div></div>
+  ${d.briefing?`<div class="brief"><b>Next best action (Claude batch briefing)</b><br>${esc(d.briefing)}</div>`:''}
+  <h2 style="margin-top:12px">Log an action (writes to Lakebase)</h2><div class="btns">${['send_ar_reminders','offer_payment_plan','offer_financing','schedule_bills','call_owner'].map(a=>`<button data-a="${a}">${a.replaceAll('_',' ')}</button>`).join('')}</div>
+  <div id="acts" class="muted">${d.actions.map(a=>`✓ ${a.action_type.replaceAll('_',' ')} — ${new Date(a.created_at).toLocaleString()}`).join('<br>')||'No actions logged yet.'}</div>
+  <h2 style="margin-top:14px">Unpaid invoices</h2><table><tr><th>Customer</th><th>Amount</th><th>Due</th><th>Status</th></tr>${d.invoices.map(i=>`<tr><td>${esc(i.customer_name)}</td><td>${fmt(i.amount)}</td><td>${i.due_date}</td><td><span class="pill ${i.status==='overdue'?'High':'Watch'}">${i.status}</span></td></tr>`).join('')}</table>
+  <h2 style="margin-top:14px">Bills due</h2><table><tr><th>Vendor</th><th>Amount</th><th>Due</th><th>Status</th></tr>${d.bills.map(b=>`<tr><td>${esc(b.vendor_name)}</td><td>${fmt(b.amount)}</td><td>${b.due_date}</td><td>${b.status}</td></tr>`).join('')}</table>
+  <h2 style="margin-top:14px">Agent notes</h2>${d.notes.map(n=>`<div class="muted">${n.created_date} — ${esc(n.note_text)}</div>`).join('')}`;
+  $('#detail').querySelectorAll('.btns button').forEach(b=>b.onclick=async()=>{await j('/api/actions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:id,agent_id:AGENT,action_type:b.dataset.a,note:'logged from copilot console'})});pick(id)});
+  $('#sugg').innerHTML=['Why is this account at risk?','Should the owner cut staff or chase receivables?','Draft a friendly reminder plan for the overdue invoices','Owner SSN is 123-45-6789, can you check their credit?'].map(s=>`<button>${s}</button>`).join('');
+  $('#sugg').querySelectorAll('button').forEach(b=>b.onclick=()=>ask(b.textContent));}
+
+function add(box,cls,html){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;$(box).appendChild(d);$(box).scrollTop=1e9;return d}
+async function ask(text){if(!text||!ACCT)return;add('#msgs','me',esc(text));const w=add('#msgs','bot','Thinking…');
+  const r=await j('/api/copilot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:ACCT,question:text})});
+  if(r.blocked){w.className='msg blk';w.innerHTML=`<b>Blocked by PII policy</b> — detected ${r.pii_entities.join(', ')}. Nothing was sent to the model; the attempt was logged (redacted) to the audit table.<br><span class="muted">${esc(r.redacted)}</span>`;return}
+  w.innerHTML=r.error?('Error: '+esc(r.error)):esc(r.answer)+`<div class="muted" style="font-size:11px;margin-top:6px">${r.model} · ${r.latency_ms} ms · grounded on Lakebase facts${r.similar&&r.similar.length?' · similar: '+r.similar.map(s=>esc(s.business_name)).join(', '):''}</div>`}
+async function genie(text){if(!text)return;add('#gmsgs','me',esc(text));const w=add('#gmsgs','bot','Genie is thinking…');
+  const r=await j('/api/genie',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:text,conversation_id:GCONV})});GCONV=r.conversation_id;
+  w.innerHTML=`${esc(r.text||'')}${r.columns.length?`<table style="margin-top:8px"><tr>${r.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>${r.rows.slice(0,20).map(row=>`<tr>${row.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</table>`:''}${r.sql?`<details><summary class="muted">SQL</summary><code>${esc(r.sql)}</code></details>`:''}`}
+$('#send').onclick=()=>{ask($('#q').value);$('#q').value=''};$('#q').onkeydown=e=>{if(e.key==='Enter')$('#send').click()};
+$('#gsend').onclick=()=>{genie($('#gq').value);$('#gq').value=''};$('#gq').onkeydown=e=>{if(e.key==='Enter')$('#gsend').click()};
+init();
+</script>
+</body>
+</html>

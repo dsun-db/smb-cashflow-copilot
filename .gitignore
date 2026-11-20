@@ -1,0 +1,5 @@
+data_gen/out/
+__pycache__/
+*.pyc
+.DS_Store
+.claude/
